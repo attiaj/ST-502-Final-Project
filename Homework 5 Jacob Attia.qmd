@@ -1,0 +1,359 @@
+---
+title: "Homework 5"
+author: "Jacob Attia"
+date: "2026-03-31"
+format: 
+  html:
+    echo: true
+    toc: false              # Table of contents
+    theme: cosmo           # Bootstrap theme
+    embed-resources: true
+  pdf:
+    documentclass: article
+    geometry: margin=1in
+execute:
+  echo: true              # Show code by default
+  warning: false          # Hide warnings
+  message: false          # Hide messages
+---
+
+# Chapter 8
+
+## Problem 3:
+
+```{r}
+p <- seq(0, 1, length.out = 1000)
+
+#Define the 3 impurity functions
+gini  <- 2 * p * (1 - p)
+error <- 1 - pmax(p, 1 - p)
+entropy <- ifelse(p == 0 | p == 1, 0, -p * log(p) - (1 - p) * log(1 - p))
+
+plot(p, gini, type = "l", col = "blue", lwd = 2,
+     ylim = c(0, 0.8),
+     xlab = expression(hat(p)[m1]),
+     ylab = "Impurity",
+     main = "Gini Index, Classification Error, and Entropy vs. p̂m1")
+
+lines(p, error,   col = "red",   lwd = 2)
+lines(p, entropy, col = "green", lwd = 2)
+
+legend("topright",
+       legend = c("Gini Index", "Classification Error", "Entropy"),
+       col    = c("blue", "red", "green"),
+       lwd    = 2)
+```
+
+## Problem 4:
+
+### a)
+
+![](images/clipboard-848763033.png)
+
+### b)
+
+![](images/clipboard-55911959.png)
+
+## Problem 7:
+
+```{r}
+library(MASS)
+library(randomForest)
+
+set.seed(1001)
+
+#Create train/test split 
+train_idx  <- sample(1:nrow(Boston), nrow(Boston) / 2)
+train_data <- Boston[train_idx, ]
+test_data  <- Boston[-train_idx, ]
+
+#ntree = 1, ..., 500
+ntree_vals <- seq(1, 500, by = 5)
+
+# p, p/2, sqrt(p), in accordance with figure 8.10
+mtry_vals  <- c(12, 6, 4)   
+colors     <- c("orange", "lightblue", "green")
+labels     <- c("m=p", "m=p/2", "m=√p")
+
+results <- matrix(NA, nrow = length(ntree_vals), ncol = length(mtry_vals))
+
+for (j in seq_along(mtry_vals)) {
+  for (i in seq_along(ntree_vals)) {
+    rf_fit <- randomForest(medv ~ .,
+                           data  = train_data,
+                           mtry  = mtry_vals[j],
+                           ntree = ntree_vals[i])
+    pred <- predict(rf_fit, test_data)
+    results[i, j] <- mean((pred - test_data$medv)^2)
+  }
+}
+
+# plot
+plot(ntree_vals, results[, 1], type = "l", col = colors[1], lwd = 2,
+     ylim = range(results),
+     xlab = "Number of Trees",
+     ylab = "Test MSE",
+     main = "Random Forest Test MSE: Boston Data")
+
+for (j in 2:length(mtry_vals)) {
+  lines(ntree_vals, results[, j], col = colors[j], lwd = 2)
+}
+
+legend("topright",
+       legend = labels,
+       col    = colors,
+       lwd    = 2)
+```
+
+We can see that test MSE drops off sharply, leveling off around 50–100 trees for each value of mtry. This indicates that the optimal value for ntree likely lies in this range, and increasing it further results in diminishing returns at the cost of additional computation time. mtry = $\sqrt{12}$ = 3 (rounding) produces consistently higher MSE than the other mtry values, suggesting that too few predictors at each split limits predictive accuracy. mtry = 6 and mtry = 12 produce very similar test MSE, indicating diminishing returns for mtry values above 6. That is, allowing more than half the predictors at each split provides little additional benefit for the Boston data.
+
+## Problem 9:
+
+### a)
+
+```{r}
+library(ISLR2)
+
+set.seed(1001)
+train_idx  <- sample(1:nrow(OJ), 800)
+train_data <- OJ[train_idx, ]
+test_data  <- OJ[-train_idx, ]
+
+```
+
+### b)
+
+```{r}
+library(tree)
+
+tree_fit <- tree(Purchase ~ ., data = train_data)
+summary(tree_fit)
+```
+
+Number of terminal nodes: 8
+
+Misclassification error rate: 16%
+
+### c)
+
+```{r}
+tree_fit
+```
+
+Node 15 represents customers with high brand loyalty to CH (LoyalCH \> 0.764) and where CH is not drastically more expensive than MM (PriceDiff \> -0.39). With 260 total observations in this category, the predicted class is CH with a high probability of 96.5%, which makes sense given the high CH loyalty and low price difference between the two OJ categories. At this node, deviance is 78.23, which is low compared to root's 1070, indicating that this is a very pure node.
+
+### d)
+
+```{r}
+plot(tree_fit)
+text(tree_fit, pretty = 0)
+
+```
+
+The original split occurs at LoyalCH = 0.48.
+
+With LoyalCH \< 0.48, a split occurs at LoyalCH = 0.06, where LoyalCH values less than 0.06 results in a classification of MM. At LoyalCH \> 0.06, another split occurs at PriceDiff = 0.31, where PriceDiff \< 0.31 results in a classification of MM, and PriceDiff \> 0.31 gives a classification of CH.
+
+With LoyalCH \> 0.48, a split occurs at LoyalCH = 0.76, and when LoyalCH \> 0.76, a split occurs at PriceDiff = -0.39. PriceDiff \> -0.39 results in classifying CH, and PriceDiff \< -0.39 results in classifying MM. When LoyalCH \< 0.76, a split occurs at PriceDiff = 0.215. When PriceDiff \> 0.215, it classifies CH. When PriceDiff \< 0.215, another split occurs at PriceDiff = -0.165, where PriceDiff \> -0.165 classifies CH and PriceDiff \< -0.165 classifies MM.
+
+Overall, LoyalCH is clearly the dominant predictor — it drives the root split and several subsequent splits, suggesting that brand loyalty is the primary driver of purchase behavior. PriceDiff serves as a secondary factor, only coming into play within moderate loyalty ranges where the price difference between CH and MM is enough to sway the decision. No other variables appear in the tree at all
+
+### e)
+
+```{r}
+
+pred <- predict(tree_fit, test_data, type = "class")
+
+confusion <- table(predicted = pred, actual = test_data$Purchase)
+print(confusion)
+
+# test error rate
+mean(pred != test_data$Purchase)
+```
+
+Test error rate = 20%
+
+### f)
+
+```{r}
+set.seed(1001)
+cv_fit <- cv.tree(tree_fit, FUN = prune.misclass)
+cv_fit
+cv_fit$size[which.min(cv_fit$dev)]
+```
+
+Optimal tree size = 8
+
+### g)
+
+```{r}
+plot(cv_fit$size, cv_fit$dev, type = "b", pch = 19,
+     xlab = "Tree Size",
+     ylab = "CV Classification Error",
+     main = "CV Error vs Tree Size")
+```
+
+### h)
+
+```{r}
+cv_fit$size[which.min(cv_fit$dev)]
+```
+
+Optimal tree size = 8
+
+### i)
+
+```{r}
+pruned_fit <- prune.misclass(tree_fit, best = 5)
+
+plot(pruned_fit)
+text(pruned_fit, pretty = 0)
+```
+
+CV selected a tree that had not been pruned, so I went with the problem's instructions to use 5 terminal nodes
+
+### j)
+
+```{r}
+# unpruned
+summary(tree_fit)
+
+# pruned
+summary(pruned_fit)
+```
+
+Misclassification rate for unpruned = 8: 16%
+
+Misclassification rate for pruned = 5: 16.88%
+
+It makes sense for the pruned tree to have a higher error rate since pruning reduces complexity and thus increases bias.
+
+### k)
+
+```{r}
+# unpruned
+pred_full <- predict(tree_fit, test_data, type = "class")
+mean(pred_full != test_data$Purchase)
+
+# pruned
+pred_pruned <- predict(pruned_fit, test_data, type = "class")
+mean(pred_pruned != test_data$Purchase)
+```
+
+Unpruned test error: 20%
+
+Pruned test error: 17.4%
+
+A higher test error on the unpruned tree suggests it was overfitting, and the choice to prune was correct.
+
+# Chapter 9
+
+## Problem 2
+
+### a) and b)
+
+![](images/clipboard-624681730.png)
+
+### c)
+
+Since our resulting from the formula in a) results in a circle with a center at (-1, 2) and a radius of 2, we can easily see that (0, 0), (2, 2), and (3, 8) are assigned to the blue class (outside of the circle), and (-1, 1) is assigned to the red class (inside the circle)
+
+### d)
+
+If we expand the original formula, we get $\beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_1^2 + \beta_4 X_2^2$ . Since each term is just a coefficient times a variable, the boundary is linear in that feature space, even though it appears nonlinear in the original $X_1$, $X_2$ space.
+
+## Problem 6
+
+### a)
+
+```{r}
+set.seed(1001)
+n <- 100
+
+x1 <- c(rnorm(n/2, mean = 0), rnorm(n/2, mean = 3))
+x2 <- c(rnorm(n/2, mean = 0), rnorm(n/2, mean = 3))
+y  <- c(rep(-1, n/2), rep(1, n/2))
+
+# shift points to make barely separable
+x1[y == -1] <- x1[y == -1] - 0.2
+x1[y ==  1] <- x1[y ==  1] + 0.2
+
+dat <- data.frame(x1 = x1, x2 = x2, y = as.factor(y))
+
+plot(x1, x2, col = ifelse(y == 1, "blue", "red"), pch = 19,
+     xlab = "X1", ylab = "X2",
+     main = "Barely Linearly Separable Data")
+```
+
+### b)
+
+```{r}
+library(caret)
+ctrl <- trainControl(method = "cv", number = 10)
+
+tune_grid <- expand.grid(C = c(0.001, 0.01, 0.1, 1, 5, 10, 100))
+
+svm_fit <- train(y ~ .,
+                 data      = dat,
+                 method    = "svmLinear",
+                 trControl = ctrl,
+                 tuneGrid  = tune_grid)
+
+print(svm_fit)
+svm_fit$bestTune
+
+results <- data.frame()
+
+for (c_val in c(0.001, 0.01, 0.1, 1, 5, 10, 100)) {
+  svm_fit_c <- train(y ~ .,
+                     data      = dat,
+                     method    = "svmLinear",
+                     trControl = trainControl(method = "none"),
+                     tuneGrid  = expand.grid(C = c_val))
+  
+  train_pred  <- predict(svm_fit_c, dat)
+  train_error <- mean(train_pred != dat$y)
+  
+  results <- rbind(results, data.frame(C            = c_val,
+                                       train_error  = train_error))
+}
+
+print(results)
+```
+
+The accuracy was quite high for all values of cost, with cost = 0.001 having the maximum accuracy at 0.99, and a minimum accuracy of 0.97 at cost = 1.
+
+Training error started low at 0.01, increasing a bit to 0.02 for cost = 0.1, then decreasing again until reaching 0 error at cost = 10, 100. This makes sense for barely linearly separable data. Generally we would expect training error to decrease monotonically as cost increases, given that complexity of fit also increases, but a small error on low cost values supports the theory given in the problem, that small values of cost may perform better on barely linearly separable data.
+
+### c)
+
+```{r}
+test_x1 <- c(rnorm(n/2, mean = 0), rnorm(n/2, mean = 3))
+test_x2 <- c(rnorm(n/2, mean = 0), rnorm(n/2, mean = 3))
+test_y  <- c(rep(-1, n/2), rep(1, n/2))
+
+test_x1[test_y == -1] <- test_x1[test_y == -1] - 0.5
+test_x1[test_y ==  1] <- test_x1[test_y ==  1] + 0.5
+
+test_dat <- data.frame(x1 = test_x1, x2 = test_x2, y = as.factor(test_y))
+
+results$test_error <- NA
+
+for (i in seq_along(c(0.001, 0.01, 0.1, 1, 5, 10, 100))) {
+  c_val <- results$C[i]
+  svm_fit_c <- train(y ~ .,
+                     data      = dat,
+                     method    = "svmLinear",
+                     trControl = trainControl(method = "none"),
+                     tuneGrid  = expand.grid(C = c_val))
+  
+  test_pred  <- predict(svm_fit_c, test_dat)
+  results$test_error[i] <- mean(test_pred != test_dat$y)
+}
+
+print(results)
+```
+
+### d)
+
+Our test errors were 0 across the board except for cost = 0.1 or 5, which is interesting since high and low values of cost both classified perfectly. In practice, we would likely choose a low cost value, since it classifies just as well as high cost values while being much less likely to overfit than the high cost values that translate to more complex fits. The low variance in our results is likely due to the number of observations being relatively small, and separable data making it easier to classify perfectly.
