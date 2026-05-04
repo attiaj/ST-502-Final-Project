@@ -13,11 +13,14 @@ theta <- (n*sum(glogg)-sum(g)*sum(log(g)))/n^2
 alpha <- mean(g)/theta
 
 h <- hist(g, breaks = append(breaks, 0.5, after = 0), density = 10,
-          col = "lightgray", xlab = "Age", main = "Age Histogram")
+          col = "lightgray", xlab = "Age", main = "Age Histogram and Normal/Gamma Fits")
 xfit <- seq(min(g), max(g), length = 40) 
 gamfit <- dgamma(xfit, alpha, scale = theta)
 gamfit <- gamfit * diff(h$mids[1:2]) * length(g)
-lines(xfit, gamfit, col = "black", lwd = 2)
+normfit <- dnorm(xfit, mean = mean(g), sd = sd(g))
+normfit <- normfit * diff(h$mids[1:2]) * length(g)
+lines(xfit, normfit, col = "black", lwd = 2)
+lines(xfit, gamfit, col = "blue", lwd = 2)
 
 breakshifts <- breaks
 breakshifts[1] <- 0.5
